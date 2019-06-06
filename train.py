@@ -10,9 +10,10 @@ from tensorflow.keras.callbacks import (
     TensorBoard
 )
 from yolov3_tf2.models import (
-    YoloV3, YoloV3Tiny, YoloLoss,
+    YoloV3, YoloV3Tiny, YoloLoss, Custom,
     yolo_anchors, yolo_anchor_masks,
-    yolo_tiny_anchors, yolo_tiny_anchor_masks
+    yolo_tiny_anchors, yolo_tiny_anchor_masks,
+    custom_anchors, custom_anchor_masks
 )
 from yolov3_tf2.utils import freeze_all
 import yolov3_tf2.dataset as dataset
@@ -20,6 +21,7 @@ import yolov3_tf2.dataset as dataset
 flags.DEFINE_string('dataset', '', 'path to dataset')
 flags.DEFINE_string('val_dataset', '', 'path to validation dataset')
 flags.DEFINE_boolean('tiny', False, 'yolov3 or yolov3-tiny')
+flags.DEFINE_boolean('custom', True, 'custom')
 flags.DEFINE_string('weights', './checkpoints/yolov3.tf',
                     'path to weights file')
 flags.DEFINE_string('classes', './data/coco.names', 'path to classes file')
@@ -35,6 +37,8 @@ flags.DEFINE_enum('transfer', 'none',
                   'frozen: Transfer and freeze all, '
                   'fine_tune: Transfer all and freeze darknet only')
 flags.DEFINE_integer('size', 416, 'image size')
+flags.DEFINE_integer('height', 720, 'help')
+flags.DEFINE_integer('width', 1280, 'help')
 flags.DEFINE_integer('epochs', 2, 'number of epochs')
 flags.DEFINE_integer('batch_size', 8, 'batch size')
 flags.DEFINE_float('learning_rate', 1e-3, 'learning rate')
@@ -42,9 +46,13 @@ flags.DEFINE_float('learning_rate', 1e-3, 'learning rate')
 
 def main(_argv):
     if FLAGS.tiny:
-        model = YoloV3Tiny(FLAGS.size, training=True)
+        model = YoloV3Tiny(FLAGS.size, training=True, classes=49)
         anchors = yolo_tiny_anchors
         anchor_masks = yolo_tiny_anchor_masks
+    elif FLAGS.custom:
+        model = Custom(FLAGS.size, training=True)
+        anchors = custom_anchors
+        anchor_masks = custom_anchor_masks
     else:
         model = YoloV3(FLAGS.size, training=True)
         anchors = yolo_anchors
@@ -58,7 +66,7 @@ def main(_argv):
     train_dataset = train_dataset.batch(FLAGS.batch_size)
     train_dataset = train_dataset.map(lambda x, y: (
         dataset.transform_images(x, FLAGS.size),
-        dataset.transform_targets(y, anchors, anchor_masks, 80)))
+        dataset.transform_targets(y, anchors, anchor_masks, 49)))
     train_dataset = train_dataset.prefetch(
         buffer_size=tf.data.experimental.AUTOTUNE)
 
@@ -69,7 +77,7 @@ def main(_argv):
     val_dataset = val_dataset.batch(FLAGS.batch_size)
     val_dataset = val_dataset.map(lambda x, y: (
         dataset.transform_images(x, FLAGS.size),
-        dataset.transform_targets(y, anchors, anchor_masks, 80)))
+        dataset.transform_targets(y, anchors, anchor_masks, 49)))
 
     if FLAGS.transfer != 'none':
         model.load_weights(FLAGS.weights)
@@ -83,7 +91,9 @@ def main(_argv):
         else:
             # reset top layers
             if FLAGS.tiny:  # get initial weights
-                init_model = YoloV3Tiny(FLAGS.size, training=True)
+                init_model = YoloV3Tiny(FLAGS.size, training=True)    
+            elif FLAGS.custom:
+                init_model = Custom(FLAGS.size, training=True)
             else:
                 init_model = YoloV3(FLAGS.size, training=True)
 
@@ -103,7 +113,7 @@ def main(_argv):
                         freeze_all(l)
 
     optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
-    loss = [YoloLoss(anchors[mask]) for mask in anchor_masks]
+    loss = [YoloLoss(anchors[mask], classes=49) for mask in anchor_masks]
 
     if FLAGS.mode == 'eager_tf':
         # Eager mode is great for debugging
@@ -158,7 +168,7 @@ def main(_argv):
 
         callbacks = [
             ReduceLROnPlateau(verbose=1),
-            EarlyStopping(patience=3, verbose=1),
+            EarlyStopping(patience=30, verbose=1),
             ModelCheckpoint('checkpoints/yolov3_train_{epoch}.tf',
                             verbose=1, save_weights_only=True),
             TensorBoard(log_dir='logs')

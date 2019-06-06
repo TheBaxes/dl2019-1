@@ -17,6 +17,7 @@ from tensorflow.keras.losses import (
     binary_crossentropy,
     sparse_categorical_crossentropy
 )
+from tensorflow.keras.applications import MobileNetV2
 from .batch_norm import BatchNormalization
 from .utils import broadcast_iou
 
@@ -31,6 +32,8 @@ yolo_tiny_anchors = np.array([(10, 14), (23, 27), (37, 58),
                              np.float32) / 416
 yolo_tiny_anchor_masks = np.array([[3, 4, 5], [0, 1, 2]])
 
+custom_anchors = np.array([(50, 50)], np.float32) / 416
+custom_anchor_masks= np.array([[0]])
 
 def DarknetConv(x, filters, size, strides=1, batch_norm=True):
     if strides == 1:
@@ -171,7 +174,6 @@ def yolo_boxes(pred, anchors, classes):
 def yolo_nms(outputs, anchors, masks, classes):
     # boxes, conf, type
     b, c, t = [], [], []
-
     for o in outputs:
         b.append(tf.reshape(o[0], (tf.shape(o[0])[0], -1, tf.shape(o[0])[-1])))
         c.append(tf.reshape(o[1], (tf.shape(o[1])[0], -1, tf.shape(o[1])[-1])))
@@ -188,8 +190,8 @@ def yolo_nms(outputs, anchors, masks, classes):
             scores, (tf.shape(scores)[0], -1, tf.shape(scores)[-1])),
         max_output_size_per_class=100,
         max_total_size=100,
-        iou_threshold=0.5,
-        score_threshold=0.5
+        iou_threshold=0.01,
+        score_threshold=0.1
     )
 
     return boxes, scores, classes, valid_detections
@@ -248,6 +250,31 @@ def YoloV3Tiny(size=None, channels=3, anchors=yolo_tiny_anchors,
     outputs = Lambda(lambda x: yolo_nms(x, anchors, masks, classes),
                      name='yolo_nms')((boxes_0[:3], boxes_1[:3]))
     return Model(inputs, outputs, name='yolov3_tiny')
+
+
+def Custom(size=None, channels=3, anchors=custom_anchors,
+           masks=custom_anchor_masks, classes=49, training=False):
+    x = inputs = Input([size, size, channels])
+
+    # _, x = DarknetTiny(name='yolo_darknet')(x)
+
+    x = MobileNetV2(input_tensor=x,
+                    include_top=False,
+                    weights='imagenet')
+    x.trainable = False
+    x = x.output
+    
+    #x = YoloConvTiny(256, name='yolo_conv_0')(x)
+    output_0 = YoloOutput(256, len(masks[0]), classes, name='yolo_output_0')(x)
+
+    if training:
+        return Model(inputs, output_0, name='yolov3')
+
+    boxes_0 = Lambda(lambda x: yolo_boxes(x, anchors[masks[0]], classes),
+                     name='yolo_boxes_0')(output_0)
+    outputs = Lambda(lambda x: yolo_nms(x, anchors, masks, classes),
+                     name='yolo_nms')([boxes_0[:3]])
+    return Model(inputs, outputs, name='custom')
 
 
 def YoloLoss(anchors, classes=80, ignore_thresh=0.5):
