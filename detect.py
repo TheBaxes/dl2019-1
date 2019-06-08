@@ -68,7 +68,7 @@ def main(_argv):
         img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
         out = FLAGS.output + '/{}'.format(val[2])
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        #cv2.imwrite(out, img)
+        cv2.imwrite(out, img)
         logging.info('output saved to: {}'.format(out))
     
         boxes, objectness, classes, nums = boxes[0], scores[0], classes[0], nums[0]
