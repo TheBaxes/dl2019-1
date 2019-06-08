@@ -6,6 +6,8 @@ For evaluation we used rafaelpadilla Object Detection Metrics in order to calcul
 
 You can see a demo copying this notebook: https://colab.research.google.com/drive/1e3BHLXI3A7Vc-2ot2sTGyejDXwS5ExOx
 
+You can download the training dataset in TFRecord format here: https://drive.google.com/file/d/1mrhM-DgEfRl9I64bwTQTvzzse1pnznSa/view?usp=sharing
+
 #### Pip
 
 ```bash
