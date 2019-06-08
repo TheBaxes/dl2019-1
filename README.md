@@ -4,7 +4,7 @@ This project uses a modified implementation of YoloV3 in TensorFlow 2.0 cloned f
 
 For evaluation we used rafaelpadilla Object Detection Metrics in order to calculate mAP with a IOU threshold of 0.1
 
-You can watch see a demo copying this notebook: https://colab.research.google.com/drive/1e3BHLXI3A7Vc-2ot2sTGyejDXwS5ExOx
+You can see a demo copying this notebook: https://colab.research.google.com/drive/1e3BHLXI3A7Vc-2ot2sTGyejDXwS5ExOx
 
 #### Pip
 
