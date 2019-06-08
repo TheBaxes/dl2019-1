@@ -66,7 +66,7 @@ def main(_argv):
             
         img = np.array(val[0])
         img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
-        out = FLAGS.output + '/{}'.format(val[2].encode("utf-8").decode("utf-8"))
+        out = FLAGS.output + '/{}'.format(str(val[2]).encode("utf-8").decode("utf-8"))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         cv2.imwrite(out, img)
         logging.info('output saved to: {}'.format(out))
